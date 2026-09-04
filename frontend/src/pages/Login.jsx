@@ -8,7 +8,7 @@ export default function Login() {
   const { notify } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-  const [email, setEmail] = useState("demo@velora.test");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("Demo@123");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -44,7 +44,7 @@ export default function Login() {
           Admin: admin@velora.test / Admin@123
         </div>
         <label>Email
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <input type="email" placeholder="Enter email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         </label>
         <label>Password
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />

@@ -29,6 +29,8 @@ export default function ProductDetail() {
   if (error) return <div className="container empty">{error}</div>;
   if (!product) return <div className="container loader" />;
 
+  const imageSrc = product.image_url ? `http://localhost:5000${product.image_url}` : "";
+
   const handleAdd = async () => {
     try {
       await addItem(product, quantity);
@@ -41,7 +43,7 @@ export default function ProductDetail() {
   return (
     <div className="container detail">
       <div className="detail-image">
-        <ProductImage src={product.image_url} alt={product.name} />
+        <ProductImage src={imageSrc} alt={product.name} />
       </div>
       <div>
         <p className="eyebrow">{product.category}</p>

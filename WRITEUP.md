@@ -1,63 +1,144 @@
-# Task 12 — Write-up
+# Task 14: Image Upload System
 
-**Project:** Velora e-commerce platform  
-**Stack:** React + Flask + MySQL  
-**New concept:** React Context API (global state)
+## 1. What is `multipart/form-data`?
 
-## 1. What is the React Context API, and why did this project need it?
+`multipart/form-data` is an HTTP request format designed to send files and form
+fields together. Each part of the request has its own headers and content, so
+the image is sent as its original binary file data rather than being converted
+into a text value.
 
-Context is React’s built-in way to share values with any descendant component without passing props through every layer. You create a context, wrap a tree in a `Provider`, and read it with `useContext` (here wrapped as `useAuth` / `useCart`).
+A normal JSON request sends structured text, for example:
 
-A store cannot keep the cart on a single page. The header badge, product cards, product detail, cart, and checkout all need the same bag. Auth is the same problem: the navbar, protected routes, and admin layout all need the current user. Prop-drilling that through `App → Layout → Navbar → CartLink` is how those trees rot. Context is the foundation of that kind of shared state; Redux is optional later, not required here.
+```json
+{
+	"name": "Brass Table Lamp",
+	"image_url": "/static/uploads/lamp.jpg"
+}
+```
 
-## 2. How does the cart actually move through the app?
+JSON cannot directly carry a browser `File` object. The frontend therefore uses
+`FormData` and sends the file as multipart data:
 
-`CartContext` keeps an `items` array in a **reducer**, not a scatter of `useState` calls:
+```jsx
+const formData = new FormData();
+formData.append("image", file);
 
-- `ADD` — if the product is already in the bag, increase quantity (capped by stock)
-- `UPDATE` — set quantity; `0` removes the line
-- `REMOVE` / `CLEAR` / `SET`
+const uploadRes = await api.post("/upload", formData, {
+	headers: { "Content-Type": "multipart/form-data" },
+});
+```
 
-**Guest:** reducer state is mirrored to `localStorage` (`velora_cart`) so a refresh does not empty the bag.
+The upload happens first. The backend returns the saved image path, and that
+path is then included in the normal JSON request that creates or updates the
+product.
 
-**Logged in:** every add/update/remove hits Flask (`/api/cart`). On login, any guest bag is `POST /api/cart/merge`’d into the user’s MySQL cart, then the server payload replaces local state. That is why you can browse as a guest and still keep the bag after you sign in.
+## 2. Unique filenames
 
-Checkout does not re-send line items. Flask reads `cart_items` for that user, snapshots prices into `order_items`, decrements stock, and clears the cart in one transaction.
+Every upload gets a UUID-based filename:
 
-## 3. How is authentication done?
+```python
+import uuid
 
-Passwords are stored as Werkzeug hashes. Login/register return a **JWT** (7-day expiry) with a `role` claim (`customer` or `admin`). The token sits in `localStorage` and Axios attaches `Authorization: Bearer …` on every request.
+ext = filename.rsplit(".", 1)[-1].lower()
+unique_name = f"{uuid.uuid4().hex}.{ext}"
+```
 
-`AuthContext` hydrates on load with `GET /api/auth/me`. If the token is missing or dead, the user is signed out.
+UUIDs prevent two files with the same original name, such as `photo.jpg`, from
+overwriting one another. Without a unique filename, a later upload with the
+same name could silently replace the earlier product image.
 
-`ProtectedRoute` sends anonymous users to `/login`. The same component with `admin` sends non-admins home. Backend still enforces this: cart/orders need JWT; `/api/admin/*` uses an `admin_required` decorator that checks the JWT `role`. The UI guard is convenience; the API is the real lock.
+## 3. File validation
 
-## 4. Database design (short)
+The backend allows only the required image extensions:
 
-Five tables:
+```python
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 
-- `users` — name, email, password_hash, role
-- `products` — catalog fields + stock + featured flag
-- `cart_items` — `(user_id, product_id)` unique, quantity
-- `orders` — status, total, shipping snapshot
-- `order_items` — product name and unit price copied at purchase time so later catalog edits do not rewrite history
 
-Relationships: a user has many cart lines and orders; an order has many items; items optionally still point at a product (`ON DELETE SET NULL`).
+def allowed_file(filename):
+		if not filename:
+				return False
+		ext = filename.rsplit(".", 1)[-1].lower()
+		return "." in filename and ext in ALLOWED_EXTENSIONS
+```
 
-## 5. Admin panel and Recharts
+The upload route rejects missing files, empty selections, and unsupported file
+types:
 
-Admins get `/admin` with three jobs: product CRUD, order status, and a dashboard. The dashboard calls `GET /api/admin/stats` and charts it with Recharts — area chart for 14-day revenue, pie for order statuses, bar for units sold. That is the same pattern as a sales dashboard, pointed at live order rows instead of mock JSON.
+```python
+if "image" not in request.files:
+		return jsonify({"error": "No file provided"}), 400
 
-## 6. What I would change in production
+file = request.files["image"]
+if file.filename == "":
+		return jsonify({"error": "No file selected"}), 400
+if not allowed_file(file.filename):
+		return jsonify({"error": "Invalid file type"}), 400
+```
 
-- Store JWTs in httpOnly cookies, not `localStorage` (XSS can steal the token today)
-- Add pagination on catalog and admin orders
-- Take card payments; this checkout only captures an address
-- Replace Unsplash URLs with uploaded assets
-- Do not run `seed.py` against production — it drops tables
+The maximum request size is limited to 2 MB in Flask:
 
-## 7. Challenges
+```python
+app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024
+```
 
-- **Cart in two places.** Guest bag is client-only; logged-in bag is MySQL. Merge-on-login was the cleanest way to make Context feel instantaneous without losing the bag after refresh.
-- **Stock.** The API rejects quantities above stock and decrements inventory only when the order is placed, so two tabs cannot oversell as easily as a client-only cart.
-- **MySQL vs local setup.** SQLAlchemy URI is env-driven (`USE_SQLITE=1` fallback) so the same models run on MySQL 8 or SQLite.
+This blocks oversized uploads at the request level before the file is saved.
+
+## 4. Storage and displaying the image
+
+Flask creates and uses the `backend/static/uploads` directory:
+
+```python
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "static", "uploads")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+```
+
+The complete save operation is:
+
+```python
+filename = secure_filename(file.filename)
+ext = filename.rsplit(".", 1)[-1].lower()
+unique_name = f"{uuid.uuid4().hex}.{ext}"
+filepath = os.path.join(app.config["UPLOAD_FOLDER"], unique_name)
+file.save(filepath)
+
+image_url = f"/static/uploads/{unique_name}"
+return jsonify({"image_url": image_url}), 201
+```
+
+Because the directory is inside Flask's `static` folder, a saved file is served
+at this URL pattern:
+
+```text
+http://localhost:5000/static/uploads/<unique-filename>
+```
+
+The frontend stores the returned path in the product record and adds the Flask
+base URL when displaying it:
+
+```jsx
+const BACKEND_BASE_URL = "http://localhost:5000";
+
+function resolveImageUrl(src) {
+	if (!src) return "";
+	if (src.startsWith("http://") || src.startsWith("https://") || src.startsWith("data:")) {
+		return src;
+	}
+	return `${BACKEND_BASE_URL}${src}`;
+}
+```
+
+For example, the stored path `/static/uploads/abc123.jpg` becomes:
+
+```text
+http://localhost:5000/static/uploads/abc123.jpg
+```
+
+Uploaded files are excluded from Git with the following rule, while `.gitkeep`
+preserves the directory:
+
+```gitignore
+backend/static/uploads/*
+!backend/static/uploads/.gitkeep
+```

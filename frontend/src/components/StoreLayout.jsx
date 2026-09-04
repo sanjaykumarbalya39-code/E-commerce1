@@ -20,9 +20,10 @@ export default function StoreLayout() {
           </nav>
           <div className="nav-actions">
             {user ? (
-              <button className="text-btn" onClick={logout}>
-                Sign out
-              </button>
+              <>
+                <span className="kicker">Hi, {user.name || "there"}</span>
+                <button className="text-btn" onClick={logout}>Sign out</button>
+              </>
             ) : (
               <NavLink to="/login">Sign in</NavLink>
             )}

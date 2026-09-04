@@ -12,8 +12,20 @@ Full-stack shop for Task 12: a customer store and an admin panel, built with **R
 
 **Admins**
 - Dashboard with Recharts (revenue trend, orders by status, top products)
-- Add, edit, and delete products
+- Add, edit, and delete products with real image uploads
 - View every order and update status (`pending` → `processing` → `shipped` → `delivered`, or `cancelled`)
+
+### Product image uploads
+
+Admin product forms accept PNG, JPG, JPEG, and WEBP files up to 2 MB. The browser
+shows an instant preview, then uploads the file to Flask before saving the product.
+Flask stores each image with a unique filename in `backend/static/uploads/` and
+serves it at `/static/uploads/<filename>`. Products without an image display a
+`No image` placeholder.
+
+Uploaded files are intentionally excluded from Git. The `.gitkeep` file preserves
+the upload directory after cloning the repository. Upload a new image through the
+admin panel after setting up a fresh clone.
 
 ## Tech stack
 
@@ -87,6 +99,14 @@ App: [http://localhost:5173](http://localhost:5173)
 
 If MySQL is not available, set `USE_SQLITE=1` in `backend/.env` and run `python seed.py` again. The rest of the app is unchanged — SQLAlchemy talks to either engine.
 
+For local development without MySQL credentials, use:
+
+```
+USE_SQLITE=1
+```
+
+Then start the backend with `python app.py` and the frontend with `npm run dev`.
+
 ## Demo accounts
 
 | Role | Email | Password |
@@ -106,6 +126,7 @@ If MySQL is not available, set `USE_SQLITE=1` in `backend/.env` and run `python 
 | GET | `/api/products` | Public (`search`, `category`, `featured`) |
 | GET | `/api/products/<id>` | Public |
 | GET | `/api/products/categories` | Public |
+| POST | `/api/upload` | Admin (multipart image upload) |
 | GET/POST/DELETE | `/api/cart` | JWT |
 | PUT/DELETE | `/api/cart/<product_id>` | JWT |
 | POST | `/api/cart/merge` | JWT (guest bag → server bag) |

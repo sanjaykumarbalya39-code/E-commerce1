@@ -7,6 +7,7 @@ import { formatPrice } from "../utils/format";
 export default function ProductCard({ product }) {
   const { addItem } = useCart();
   const { notify } = useToast();
+  const imageSrc = product?.image_url ? `http://localhost:5000${product.image_url}` : "";
 
   const handleAdd = async (event) => {
     event.preventDefault();
@@ -22,7 +23,7 @@ export default function ProductCard({ product }) {
     <article className="card product-card">
       <Link to={`/product/${product.id}`}>
         <div className="thumb">
-          <ProductImage src={product.image_url} alt={product.name} />
+          <ProductImage src={imageSrc} alt={product.name} />
         </div>
         <div className="card-body">
           <div className="kicker">{product.category}</div>

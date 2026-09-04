@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import ProductCard from "../components/ProductCard";
 import api from "../services/api";
 
+const BACKEND_BASE_URL = "http://localhost:5000";
+
 export default function Home() {
   const [featured, setFeatured] = useState([]);
 
@@ -29,7 +31,7 @@ export default function Home() {
         </div>
         <div className="hero-visual">
           <img
-            src="https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1400&q=80"
+            src={`${BACKEND_BASE_URL}/static/uploads/oak-lounge-chair.jpg`}
             alt="Sunlit living room with oak furniture"
           />
           <div className="hero-chip">
@@ -56,7 +58,7 @@ export default function Home() {
 
       <section className="split">
         <img
-          src="https://images.unsplash.com/photo-1507473882602-a3cfa899349b?auto=format&fit=crop&w=1200&q=80"
+          src={`${BACKEND_BASE_URL}/static/uploads/brass-table-lamp.jpg`}
           alt="Brass lamp on a walnut table"
         />
         <div className="split-copy">
