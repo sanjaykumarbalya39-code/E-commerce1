@@ -1,0 +1,105 @@
+SQL PAGINATION AND REACT SEARCH NOTES
+======================================
+
+1. LIMIT and OFFSET in SQL
+
+LIMIT controls how many rows SQL returns.
+
+OFFSET controls how many matching rows SQL skips before returning rows.
+
+For page-based pagination:
+
+    LIMIT = items per page
+    OFFSET = (page number - 1) * items per page
+
+Example: 47 products, page 3, with 8 products per page
+
+    LIMIT  = 8
+    OFFSET = (3 - 1) * 8 = 16
+
+So the query uses:
+
+    LIMIT 8 OFFSET 16
+
+This skips the first 16 products and returns products 17 through 24.
+There are 6 pages in total because 47 products divided into groups of 8
+requires 6 pages; the last page contains 7 products.
+
+In this project, the backend uses the same calculation:
+
+    .limit(limit).offset((page - 1) * limit)
+
+
+2. How useDebounce works
+
+The useDebounce hook receives a value and a delay. It immediately stores the
+initial value, then starts a timer whenever the value or delay changes.
+
+    const timer = setTimeout(() => setDebounced(value), delay);
+
+After the delay finishes, the hook updates debounced with the latest value.
+In Home and Shop, the delay is 300 milliseconds, so the API search does not
+run for every individual keystroke.
+
+The cleanup function is:
+
+    return () => clearTimeout(timer);
+
+React runs this cleanup before the effect runs again and when the component is
+unmounted. It cancels the previous timer. Therefore, if the user types again
+before 300 milliseconds have passed, the old timer is removed and a new timer
+starts for the newer search value.
+
+This is important because it prevents stale values from being applied, avoids
+unnecessary delayed updates, and reduces unnecessary API requests while the
+user is typing.
+
+
+3. Why reset currentPage to 1 when the search changes?
+
+A new search produces a new result set. The old page may not exist for that
+result set. For example, the previous search might have had 5 pages, while the
+new search might have only 1 page. Keeping page 5 could show an empty page or
+an invalid result.
+
+Resetting to page 1 always starts the new search at the beginning of its
+results. In this project, Home and Shop do this in an effect that watches the
+debounced search value. Shop also resets the page when the category changes,
+because changing the category changes the result set as well.
+
+
+4. Pagination component props and parent control
+
+The Pagination component accepts these props:
+
+    currentPage
+        The page currently selected.
+
+    totalPages
+        The total number of available pages. If it is 1 or less, the component
+        renders nothing.
+
+    onPageChange
+        A callback that the component calls with the requested page number.
+
+Usage in the parent looks like this:
+
+    <Pagination
+      currentPage={currentPage}
+      totalPages={totalPages}
+      onPageChange={setCurrentPage}
+    />
+
+The parent owns the state:
+
+    const [currentPage, setCurrentPage] = useState(1);
+
+The Pagination component does not decide or store the active page itself. It
+reads currentPage to highlight the active button, disable Previous on page 1,
+and disable Next on the last page. When a user clicks a page, Previous, or
+Next, it calls onPageChange with the new page number. The parent's state then
+updates, causing the parent to fetch and display that page's products.
+
+In this project, the product pagination is used by Home and Shop. The same
+component is also used by the admin Orders page with the same three-prop
+contract.
