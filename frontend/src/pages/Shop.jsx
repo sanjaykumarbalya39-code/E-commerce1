@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import ProductCard from "../components/ProductCard";
+import Pagination from "../components/Pagination";
+import { useDebounce } from "../hooks/useDebounce";
 import api from "../services/api";
 
 export default function Shop() {
@@ -8,30 +10,42 @@ export default function Shop() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const category = params.get("category") || "All";
   const [search, setSearch] = useState(params.get("search") || "");
+  const debouncedSearch = useDebounce(search, 300);
 
   useEffect(() => {
     api.get("/products/categories").then(({ data }) => setCategories(data.categories));
   }, []);
 
   useEffect(() => {
-    const handle = window.setTimeout(async () => {
+    const loadProducts = async () => {
       setLoading(true);
       try {
         const { data } = await api.get("/products", {
           params: {
-            search: search || undefined,
+            page: currentPage,
+            limit: 8,
+            search: debouncedSearch || undefined,
             category: category !== "All" ? category : undefined,
           },
         });
         setProducts(data.products);
+        setTotal(data.total);
+        setTotalPages(data.total_pages);
       } finally {
         setLoading(false);
       }
-    }, 250);
-    return () => window.clearTimeout(handle);
-  }, [search, category]);
+    };
+    loadProducts();
+  }, [debouncedSearch, category, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, category]);
 
   const chips = useMemo(() => ["All", ...categories], [categories]);
 
@@ -70,11 +84,15 @@ export default function Shop() {
       ) : products.length === 0 ? (
         <div className="empty">Nothing matched that search. Try another material or room.</div>
       ) : (
-        <div className="product-grid section">
-          {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        <>
+          <p className="result-count">Showing {products.length} of {total} products</p>
+          <div className="product-grid section">
+            {products.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+        </>
       )}
     </div>
   );

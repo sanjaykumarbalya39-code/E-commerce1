@@ -1,18 +1,33 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import Pagination from "../components/Pagination";
 import ProductCard from "../components/ProductCard";
+import { useDebounce } from "../hooks/useDebounce";
 import api from "../services/api";
 
 const BACKEND_BASE_URL = "http://localhost:5000";
 
 export default function Home() {
   const [featured, setFeatured] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
 
   useEffect(() => {
-    api.get("/products", { params: { featured: true } }).then(({ data }) => {
+    api.get("/products", {
+      params: { featured: true, page: currentPage, limit: 8, search: debouncedSearch || undefined },
+    }).then(({ data }) => {
       setFeatured(data.products);
+      setTotal(data.total);
+      setTotalPages(data.total_pages);
     });
-  }, []);
+  }, [currentPage, debouncedSearch]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch]);
 
   return (
     <div className="container">
@@ -49,11 +64,19 @@ export default function Home() {
           </div>
           <Link to="/shop">View all</Link>
         </div>
+        <input
+          className="search"
+          placeholder="Search featured products..."
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+        <p className="result-count">Showing {featured.length} of {total} products</p>
         <div className="product-grid">
           {featured.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
+        <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
       </section>
 
       <section className="split">

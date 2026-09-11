@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useToast } from "../../context/ToastContext";
+import Pagination from "../../components/Pagination";
 import api from "../../services/api";
 import { formatDate, formatPrice, statusLabel } from "../../utils/format";
 
@@ -8,14 +9,19 @@ const STATUSES = ["pending", "processing", "shipped", "delivered", "cancelled"];
 export default function AdminOrders() {
   const [orders, setOrders] = useState([]);
   const [status, setStatus] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const { notify } = useToast();
 
-  const load = (nextStatus = status) =>
-    api.get("/admin/orders", { params: { status: nextStatus } }).then(({ data }) => setOrders(data.orders));
+  const load = () =>
+    api.get("/admin/orders", { params: { status, page: currentPage, limit: 10 } }).then(({ data }) => {
+      setOrders(data.orders);
+      setTotalPages(data.total_pages);
+    });
 
   useEffect(() => {
     load();
-  }, []);
+  }, [status, currentPage]);
 
   const updateStatus = async (id, next) => {
     try {
@@ -38,7 +44,7 @@ export default function AdminOrders() {
           value={status}
           onChange={(event) => {
             setStatus(event.target.value);
-            load(event.target.value);
+            setCurrentPage(1);
           }}
         >
           <option value="all">All statuses</option>
@@ -80,6 +86,7 @@ export default function AdminOrders() {
           </tbody>
         </table>
       </div>
+      <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
     </div>
   );
 }

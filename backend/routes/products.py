@@ -1,4 +1,5 @@
 from flask import Blueprint, jsonify, request
+from sqlalchemy import or_
 
 from models import Product
 
@@ -11,6 +12,9 @@ def list_products():
     search = (request.args.get("search") or "").strip()
     category = (request.args.get("category") or "").strip()
     featured = request.args.get("featured")
+    page = max(request.args.get("page", 1, type=int) or 1, 1)
+    limit = min(max(request.args.get("limit", 8, type=int) or 8, 1), 100)
+    sort = (request.args.get("sort") or "").strip().lower()
 
     if search:
         like = f"%{search}%"
@@ -22,13 +26,32 @@ def list_products():
     if featured in ("1", "true", "True"):
         query = query.filter(Product.featured.is_(True))
 
-    products = query.order_by(Product.featured.desc(), Product.created_at.desc()).all()
-    return jsonify({"products": [p.to_dict() for p in products]})
+    total = query.count()
+    sort_columns = {
+        "name": Product.name.asc(),
+        "price_asc": Product.price.asc(),
+        "price_desc": Product.price.desc(),
+        "oldest": Product.created_at.asc(),
+    }
+    order = sort_columns.get(sort)
+    if order is None:
+        order = Product.featured.desc(), Product.created_at.desc()
+    else:
+        order = (order,)
+
+    products = query.order_by(*order).limit(limit).offset((page - 1) * limit).all()
+    return jsonify(
+        {
+            "products": [p.to_dict() for p in products],
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "total_pages": (total + limit - 1) // limit,
+        }
+    )
 
 
 def db_or(*clauses):
-    from sqlalchemy import or_
-
     return or_(*clauses)
 
 

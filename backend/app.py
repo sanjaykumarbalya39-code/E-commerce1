@@ -19,7 +19,7 @@ ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 
 def allowed_file(filename):
     if not filename:
-        return False
+        return False4
     ext = filename.rsplit(".", 1)[-1].lower()
     return "." in filename and ext in ALLOWED_EXTENSIONS
 

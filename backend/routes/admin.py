@@ -145,11 +145,27 @@ def delete_product(product_id):
 @admin_required
 def admin_orders():
     status = (request.args.get("status") or "").strip()
+    page = max(request.args.get("page", 1, type=int) or 1, 1)
+    limit = min(max(request.args.get("limit", 10, type=int) or 10, 1), 100)
     query = Order.query
     if status and status != "all":
         query = query.filter(Order.status == status)
-    orders = query.order_by(Order.created_at.desc()).all()
-    return jsonify({"orders": [order.to_dict() for order in orders]})
+    total = query.count()
+    orders = (
+        query.order_by(Order.created_at.desc())
+        .limit(limit)
+        .offset((page - 1) * limit)
+        .all()
+    )
+    return jsonify(
+        {
+            "orders": [order.to_dict() for order in orders],
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "total_pages": (total + limit - 1) // limit,
+        }
+    )
 
 
 @admin_bp.patch("/orders/<int:order_id>/status")
