@@ -1,0 +1,113 @@
+AUTHENTICATION QUESTIONS AND ANSWERS
+====================================
+
+1. Access tokens and refresh tokens
+
+An access token is a short-lived JWT used to access protected API endpoints.
+In this application, the frontend sends it in the HTTP Authorization header:
+
+    Authorization: Bearer <access-token>
+
+The backend checks this token on routes such as the cart, orders, and /api/me.
+The access token expires after 15 minutes.
+
+A refresh token is a longer-lived JWT used only to request a new access token.
+It is sent to the /api/refresh endpoint, which is protected with
+@jwt_required(refresh=True). In this application, the refresh token expires
+after 7 days and is not used for normal API requests.
+
+The expiry lengths are different for security and usability. If a short-lived
+access token is stolen, the attacker can use it only for a limited time. The
+longer refresh-token lifetime means the user does not have to log in again
+every 15 minutes. Keeping the refresh token separate also allows the server
+to issue a new access token without asking the user for their password again.
+
+
+2. Axios interceptors
+
+An Axios interceptor is a function that runs automatically before a request or
+after a response. This application has two relevant interceptors:
+
+* The request interceptor reads the access token from localStorage and adds
+  the Authorization header to every API request.
+* The response interceptor handles errors from API responses, especially HTTP
+  401 responses caused by an expired access token.
+
+Without an interceptor, every API call would need repeated code like this:
+
+    api.get("/products", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+The interceptor is better here because authentication is centralized in one
+place. Every current and future API call gets the same header automatically,
+which removes duplication and reduces the chance that one request forgets the
+token or uses outdated authentication logic. It also provides one common place
+to refresh an expired token and handle failed authentication.
+
+
+3. What happens when the access token expires mid-session?
+
+The exact sequence in frontend/src/services/api.js is:
+
+1. The user makes an API request through the shared Axios instance named api.
+2. The request interceptor reads access_token from localStorage and adds it
+   as a Bearer token in the Authorization header.
+3. If the access token has expired, Flask-JWT-Extended rejects the request
+   with HTTP 401.
+4. The response interceptor receives the error and stores the failed request
+   in original = error.config.
+5. It checks that the status is 401 and that original._retry is not already
+   set. This prevents an endless retry loop.
+6. It sets original._retry = true and reads the refresh token from
+   localStorage.
+7. If there is no refresh token, the refresh attempt fails immediately.
+8. Otherwise, the interceptor sends POST /api/refresh with the refresh token
+   in its Authorization header. The refresh request uses the base Axios
+   function, so it does not recursively pass through the api interceptor.
+9. Flask verifies that the refresh token is valid, has not expired, and is a
+   refresh token. The backend then returns a new access_token.
+10. The frontend stores the new access token in localStorage.
+11. It updates original.headers.Authorization with the new token and retries
+    the original request by calling api(original).
+12. If the retry succeeds, the original API call appears to the user as a
+    normal successful request.
+13. If refreshing or retrying fails, the interceptor removes both access and
+    refresh tokens, removes the legacy token keys, redirects the browser to
+    /login, and rejects the original error.
+
+Therefore, a still-valid refresh token normally lets the user continue without
+seeing a login screen. If the refresh token has also expired, the user must
+log in again.
+
+
+4. JWT authentication versus Flask session authentication
+
+With Flask session authentication, the server stores login state in a session
+and sends the browser a session cookie. The browser automatically sends that
+cookie on matching requests, and the server reads the session on each request.
+The server must maintain session state, or use a shared session store when the
+application runs on multiple server instances. Cross-origin requests also
+need careful cookie, CORS, and CSRF configuration.
+
+With JWT authentication, the server issues signed tokens containing the
+identity and claims needed to authenticate the request. The client sends the
+access token explicitly in the Authorization header. The backend can verify
+the signature and expiration without looking up a server-side login session.
+
+JWT is a good fit for this React single-page application because:
+
+* React communicates with Flask as a separate JSON API.
+* The Authorization header makes authentication explicit for fetch and Axios
+  requests.
+* The API does not need to keep a server-side session for every browser.
+* Stateless verification is convenient when API servers are scaled across
+  multiple instances.
+* The access-token and refresh-token design gives short request credentials
+  while keeping the user signed in for several days.
+
+JWT is not automatically better for every website. Traditional Flask sessions
+are often simpler for server-rendered pages and can be very secure when cookie
+and CSRF protections are configured correctly. JWT is better for this project
+because its frontend and backend are separate and the frontend needs a clear,
+header-based authentication protocol for API calls.

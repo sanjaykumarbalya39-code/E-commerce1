@@ -7,7 +7,7 @@ from werkzeug.utils import secure_filename
 from config import Config
 from extensions import cors, db, jwt
 from routes.admin import admin_bp
-from routes.auth import auth_bp
+from routes.auth import auth_bp, login as login_view, me as me_view, refresh as refresh_view
 from routes.cart import cart_bp
 from routes.orders import orders_bp
 from routes.products import products_bp
@@ -65,6 +65,18 @@ def create_app():
     app.register_blueprint(cart_bp, url_prefix="/api/cart")
     app.register_blueprint(orders_bp, url_prefix="/api/orders")
     app.register_blueprint(admin_bp, url_prefix="/api/admin")
+
+    @app.post("/api/login")
+    def login_alias():
+        return login_view()
+
+    @app.post("/api/refresh")
+    def refresh_alias():
+        return refresh_view()
+
+    @app.get("/api/me")
+    def me_alias():
+        return me_view()
 
     @app.post("/api/upload")
     @admin_required

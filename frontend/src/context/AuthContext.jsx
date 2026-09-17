@@ -5,13 +5,14 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(() => localStorage.getItem("velora_token"));
+  const [token, setToken] = useState(() => localStorage.getItem("access_token") || localStorage.getItem("velora_token"));
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     async function hydrate() {
-      if (!token) {
+      const accessToken = localStorage.getItem("access_token") || localStorage.getItem("velora_token");
+      if (!accessToken) {
         setUser(null);
         setReady(true);
         return;
@@ -20,7 +21,10 @@ export function AuthProvider({ children }) {
         const { data } = await api.get("/auth/me");
         if (!cancelled) setUser(data.user);
       } catch {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
         localStorage.removeItem("velora_token");
+        localStorage.removeItem("velora_refresh_token");
         if (!cancelled) {
           setToken(null);
           setUser(null);
@@ -36,8 +40,18 @@ export function AuthProvider({ children }) {
   }, [token]);
 
   const applySession = (payload) => {
-    localStorage.setItem("velora_token", payload.token);
-    setToken(payload.token);
+    const nextToken = payload.access_token || payload.token;
+    const refreshToken = payload.refresh_token;
+
+    if (nextToken) {
+      localStorage.setItem("access_token", nextToken);
+      localStorage.removeItem("velora_token");
+      setToken(nextToken);
+    }
+    if (refreshToken) {
+      localStorage.setItem("refresh_token", refreshToken);
+      localStorage.removeItem("velora_refresh_token");
+    }
     setUser(payload.user);
     return payload.user;
   };
@@ -53,7 +67,10 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
     localStorage.removeItem("velora_token");
+    localStorage.removeItem("velora_refresh_token");
     setToken(null);
     setUser(null);
   };

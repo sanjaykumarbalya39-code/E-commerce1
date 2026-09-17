@@ -1,5 +1,11 @@
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required
+from flask_jwt_extended import (
+    create_access_token,
+    create_refresh_token,
+    get_jwt,
+    get_jwt_identity,
+    jwt_required,
+)
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from extensions import db
@@ -8,11 +14,17 @@ from models import User
 auth_bp = Blueprint("auth", __name__)
 
 
-def _token_for(user):
-    return create_access_token(
+def _token_payload(user):
+    return {"role": user.role, "email": user.email, "name": user.name}
+
+
+def _issue_tokens(user):
+    access_token = create_access_token(
         identity=str(user.id),
-        additional_claims={"role": user.role, "email": user.email},
+        additional_claims=_token_payload(user),
     )
+    refresh_token = create_refresh_token(identity=str(user.id))
+    return access_token, refresh_token
 
 
 @auth_bp.post("/register")
@@ -40,7 +52,9 @@ def register():
     db.session.add(user)
     db.session.commit()
 
-    return jsonify({"user": user.to_dict(), "token": _token_for(user)}), 201
+    access_token, refresh_token = _issue_tokens(user)
+    payload = {"user": user.to_dict(), "token": access_token, "access_token": access_token, "refresh_token": refresh_token}
+    return jsonify(payload), 201
 
 
 @auth_bp.post("/login")
@@ -53,7 +67,30 @@ def login():
     if not user or not check_password_hash(user.password_hash, password):
         return jsonify({"error": "Invalid email or password."}), 401
 
-    return jsonify({"user": user.to_dict(), "token": _token_for(user)})
+    access_token, refresh_token = _issue_tokens(user)
+    return jsonify(
+        {
+            "user": user.to_dict(),
+            "token": access_token,
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+        }
+    )
+
+
+@auth_bp.post("/refresh")
+@jwt_required(refresh=True)
+def refresh():
+    user_id = get_jwt_identity()
+    user = db.session.get(User, int(user_id))
+    if not user:
+        return jsonify({"error": "User not found."}), 404
+
+    access_token = create_access_token(
+        identity=str(user.id),
+        additional_claims={"role": user.role, "email": user.email, "name": user.name},
+    )
+    return jsonify({"access_token": access_token})
 
 
 @auth_bp.get("/me")

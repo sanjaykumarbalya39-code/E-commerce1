@@ -11,7 +11,8 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "velora-dev-secret-change-me-32b!!")
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "velora-jwt-secret-change-me-32b!!")
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=7)
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=15)
+    JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=7)
     JWT_TOKEN_LOCATION = ["headers"]
 
     MYSQL_USER = os.getenv("MYSQL_USER", "root")
