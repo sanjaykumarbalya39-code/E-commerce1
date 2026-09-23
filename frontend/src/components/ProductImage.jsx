@@ -13,18 +13,7 @@ export default function ProductImage({ src, alt }) {
 
   if (!resolvedSrc) {
     return (
-      <div style={{
-        display: "grid",
-        placeItems: "center",
-        width: "100%",
-        height: "100%",
-        minHeight: 180,
-        background: "#f3f4f6",
-        color: "#6b7280",
-        borderRadius: 12,
-        fontSize: 14,
-        fontWeight: 600,
-      }}>
+      <div className="product-image-placeholder">
         No image
       </div>
     );
@@ -39,10 +28,7 @@ export default function ProductImage({ src, alt }) {
         event.currentTarget.src = "";
         event.currentTarget.style.display = "none";
         event.currentTarget.parentElement.innerHTML = `
-          <div style="
-            display:grid; place-items:center; width:100%; height:100%; min-height:180px;
-            background:#f3f4f6; color:#6b7280; border-radius:12px; font-size:14px; font-weight:600;
-          ">
+          <div class="product-image-placeholder">
             No image
           </div>
         `;

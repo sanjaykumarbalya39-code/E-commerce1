@@ -1,0 +1,56 @@
+CSS custom properties and theme detection
+
+1. What is a CSS custom property, and how is it different from a hardcoded color value?
+
+A CSS custom property is a reusable CSS value whose name starts with two hyphens, such as --clay or --paper. It is read with the var() function:
+
+  color: var(--ink);
+
+The value can be changed in one place or for a particular theme. For example, this app defines:
+
+  --clay: #c45c26;
+
+and uses it like this:
+
+  .btn-clay { background: var(--clay); }
+
+A hardcoded color value puts the color directly in the rule, for example:
+
+  .btn-clay { background: #c45c26; }
+
+The custom property is more flexible because the dark theme can redefine --clay as #e07a43, and every rule using var(--clay) updates automatically. A hardcoded value would have to be changed separately in each rule.
+
+2. How does the app detect the user's system theme on first visit?
+
+The exact code in frontend/src/context/ThemeContext.jsx is:
+
+  function getInitialTheme() {
+    const savedTheme = localStorage.getItem("theme");
+    if (savedTheme === "light" || savedTheme === "dark") return savedTheme;
+
+    return window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light";
+  }
+
+If there is no valid saved theme, window.matchMedia checks the browser's prefers-color-scheme media query. If it matches dark, the initial theme is "dark"; otherwise it is "light".
+
+3. Why is data-theme on the root element better than passing a theme prop to every component?
+
+The provider sets the attribute on the root HTML element with:
+
+  document.documentElement.setAttribute("data-theme", theme);
+
+This gives the CSS for the whole app one central theme switch. The stylesheet can select the theme with :root[data-theme="light"] and :root[data-theme="dark"], and all components can use the same custom properties with var(...).
+
+Passing a theme prop through every component would create prop drilling, require components to forward a value they may not use, and make it easier for different components to get out of sync. The root attribute keeps theme state centralized while CSS handles the visual changes globally. Components only need the context when they provide theme controls, such as the toggle button.
+
+4. What is localStorage.getItem("theme") doing in getInitialTheme, and why does it take priority?
+
+  const savedTheme = localStorage.getItem("theme");
+
+This reads the value previously stored in the browser under the key "theme". The effect in the provider saves the current choice with:
+
+  localStorage.setItem("theme", theme);
+
+The saved value takes priority because it represents the user's explicit in-app choice. The system preference is only the fallback for a first visit or when no valid saved value exists. Without this priority, changing the operating system theme could unexpectedly override the user's selected app theme.

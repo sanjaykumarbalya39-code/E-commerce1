@@ -1,10 +1,12 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
+import { useTheme } from "../context/ThemeContext";
 
 export default function StoreLayout() {
   const { user, logout, isAdmin } = useAuth();
   const { count } = useCart();
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <div className="page-shell">
@@ -19,6 +21,9 @@ export default function StoreLayout() {
             {isAdmin && <NavLink to="/admin">Admin</NavLink>}
           </nav>
           <div className="nav-actions">
+            <button className="theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}>
+              {theme === "light" ? "Moon" : "Sun"}
+            </button>
             {user ? (
               <>
                 <span className="kicker">Hi, {user.name || "there"}</span>
