@@ -2,10 +2,14 @@ import os
 import uuid
 
 from flask import Flask, jsonify, request
+from flask_jwt_extended import get_jwt_identity, jwt_required
+from sqlalchemy.exc import IntegrityError
 from werkzeug.utils import secure_filename
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from config import Config
 from extensions import cors, db, jwt
+from models import User
 from routes.admin import admin_bp
 from routes.auth import auth_bp, login as login_view, me as me_view, refresh as refresh_view
 from routes.cart import cart_bp
@@ -75,8 +79,77 @@ def create_app():
         return refresh_view()
 
     @app.get("/api/me")
+    @jwt_required()
     def me_alias():
-        return me_view()
+        user = db.session.get(User, int(get_jwt_identity()))
+        if not user:
+            return jsonify({"error": "User not found."}), 404
+        return jsonify(user.to_dict())
+
+    @app.put("/api/me")
+    @jwt_required()
+    def update_profile():
+        data = request.get_json(silent=True) or {}
+        name = (data.get("name") or "").strip()
+        email = (data.get("email") or "").strip().lower()
+        if not name or not email:
+            return jsonify({"error": "Name and email are required."}), 400
+
+        user = db.session.get(User, int(get_jwt_identity()))
+        if not user:
+            return jsonify({"error": "User not found."}), 404
+
+        user.name = name
+        user.email = email
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            return jsonify({"error": "Email already in use."}), 409
+        return jsonify({"message": "Profile updated.", "user": user.to_dict()})
+
+    @app.put("/api/me/password")
+    @jwt_required()
+    def change_password():
+        data = request.get_json(silent=True) or {}
+        current_password = data.get("current_password") or ""
+        new_password = data.get("new_password") or ""
+        confirm_password = data.get("confirm_password") or ""
+
+        if new_password != confirm_password:
+            return jsonify({"error": "Passwords do not match."}), 400
+        if len(new_password) < 6:
+            return jsonify({"error": "Password must be at least 6 characters."}), 400
+
+        user = db.session.get(User, int(get_jwt_identity()))
+        if not user:
+            return jsonify({"error": "User not found."}), 404
+        if not check_password_hash(user.password_hash, current_password):
+            return jsonify({"error": "Current password incorrect."}), 401
+
+        user.password_hash = generate_password_hash(new_password)
+        db.session.commit()
+        return jsonify({"message": "Password changed."})
+
+    @app.put("/api/me/avatar")
+    @jwt_required()
+    def update_avatar():
+        image = request.files.get("image")
+        if not image or not image.filename:
+            return jsonify({"error": "Choose an image to upload."}), 400
+        if not allowed_file(image.filename):
+            return jsonify({"error": "Use a PNG, JPG, JPEG, or WebP image."}), 400
+
+        user = db.session.get(User, int(get_jwt_identity()))
+        if not user:
+            return jsonify({"error": "User not found."}), 404
+
+        ext = secure_filename(image.filename).rsplit(".", 1)[-1].lower()
+        filename = f"{uuid.uuid4().hex}.{ext}"
+        image.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
+        user.avatar_url = f"/static/uploads/{filename}"
+        db.session.commit()
+        return jsonify({"avatar_url": user.avatar_url, "user": user.to_dict()}), 201
 
     @app.post("/api/upload")
     @admin_required

@@ -97,6 +97,10 @@ button { cursor: pointer; }
   font-size: 0.92rem;
 }
 .nav-links a.active, .nav-links a:hover, .text-btn:hover { color: var(--ink); }
+.profile-nav { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--muted); font-size: 0.9rem; }
+.profile-nav:hover { color: var(--ink); }
+.nav-avatar { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; background: var(--sand); }
+.nav-avatar-initials { display: grid; place-items: center; color: var(--ink); font-size: 0.72rem; font-weight: 600; }
 .cart-link {
   position: relative;
   border: 1px solid var(--line);
@@ -350,6 +354,20 @@ textarea { min-height: 110px; resize: vertical; }
 .error { color: var(--danger); font-size: 0.9rem; }
 .page-head { padding: 1.8rem 0 0.4rem; }
 .page-head h1 { font-size: clamp(2.4rem, 6vw, 4.4rem); }
+.profile-page { padding-bottom: 3.5rem; }
+.profile-member { color: var(--muted); margin-top: -0.3rem; }
+.profile-sections { border-top: 1px solid var(--line); }
+.profile-section { display: grid; grid-template-columns: minmax(190px, 0.65fr) minmax(0, 1fr); gap: 2rem; padding: 2rem 0; border-bottom: 1px solid var(--line); }
+.profile-section-heading .eyebrow { margin: 0 0 0.45rem; }
+.profile-section-heading h2 { margin: 0; font-family: var(--serif); font-size: 2rem; font-weight: 500; }
+.profile-photo-row { display: flex; align-items: center; gap: 1.3rem; }
+.profile-avatar { width: 112px; height: 112px; flex: 0 0 112px; object-fit: cover; border-radius: 50%; background: var(--sand); }
+.profile-avatar-initials { display: grid; place-items: center; color: var(--ink); font-family: var(--serif); font-size: 2rem; }
+.profile-photo-controls { display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap; }
+.profile-file-button { position: relative; overflow: hidden; cursor: pointer; }
+.profile-file-button input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.profile-form { max-width: 540px; }
+.profile-form .btn { justify-self: start; }
 
 .auth-layout { align-items: start; }
 .auth-card { padding: 1.6rem; }
@@ -447,4 +465,11 @@ th { color: var(--muted); font-weight: 500; font-size: 0.78rem; letter-spacing: 
   .admin-side { flex-direction: row; flex-wrap: wrap; }
   .hero-visual, .detail-image { min-height: 280px; }
   .detail-image img, .hero-visual img { min-height: 280px; }
+}
+
+@media (max-width: 640px) {
+  .profile-section { grid-template-columns: 1fr; gap: 1rem; }
+  .profile-photo-row { align-items: flex-start; flex-direction: column; }
+  .nav-actions { gap: 0.65rem; }
+  .profile-nav > span:last-child { display: none; }
 }

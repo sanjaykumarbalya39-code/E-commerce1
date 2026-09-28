@@ -9,6 +9,7 @@ class User(db.Model):
     name = db.Column(db.String(120), nullable=False)
     email = db.Column(db.String(180), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
+    avatar_url = db.Column(db.String(255), nullable=True, default=None)
     role = db.Column(db.String(20), nullable=False, default="customer")
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
@@ -21,6 +22,7 @@ class User(db.Model):
             "name": self.name,
             "email": self.email,
             "role": self.role,
+            "avatar_url": self.avatar_url,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 

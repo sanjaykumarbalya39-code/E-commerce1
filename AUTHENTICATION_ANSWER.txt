@@ -111,3 +111,44 @@ are often simpler for server-rendered pages and can be very secure when cookie
 and CSRF protections are configured correctly. JWT is better for this project
 because its frontend and backend are separate and the frontend needs a clear,
 header-based authentication protocol for API calls.
+
+
+5. Updating the Navbar after a name or avatar change
+
+After a profile or avatar update succeeds, ProfilePage calls updateUser with
+the updated user object returned by the API. updateUser updates the user state
+held in AuthContext. The Navbar (StoreLayout) reads that same context value, so
+React rerenders it with the new name or avatar as soon as the state changes;
+there is no need to reload the page. The React concept that makes this possible
+is state-driven rendering, with shared state provided through Context.
+
+
+6. Why verify the current password before changing it?
+
+The server checks the submitted current password against the stored password
+hash before replacing it. This confirms that the person changing the password
+knows the account's existing credential, which helps protect an account when a
+device is left signed in or an authenticated session is taken over. If this
+check were skipped, someone with temporary access to an active session could
+change the password and lock out the account owner.
+
+
+7. Why does a wrong current password return 401 instead of 400?
+
+The request can be correctly formatted and contain all required fields, so it
+is not a malformed-request error (400). A wrong current password means the
+provided credentials do not authenticate the user for this sensitive action.
+HTTP 401 indicates an authentication failure, which is why the password-change
+route returns 401 for this case. The route returns 400 for input validation
+problems such as mismatched new-password confirmation or a new password that
+is too short.
+
+
+8. Purpose of updateUser in AuthContext
+
+updateUser merges updated user fields into the current user object in
+AuthContext using React state. ProfilePage calls it after loading or saving a
+profile and after uploading an avatar. Any component that reads the context,
+including the Navbar, then sees the latest user data and rerenders immediately.
+It keeps shared user data consistent across the app without a page refresh or
+another login.

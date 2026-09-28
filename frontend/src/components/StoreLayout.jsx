@@ -3,6 +3,15 @@ import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { useTheme } from "../context/ThemeContext";
 
+function initials(name) {
+  return (name || "?").trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+}
+
+function avatarSource(url) {
+  if (!url) return "";
+  return url.startsWith("http") ? url : `http://${window.location.hostname}:5000${url}`;
+}
+
 export default function StoreLayout() {
   const { user, logout, isAdmin } = useAuth();
   const { count } = useCart();
@@ -26,7 +35,14 @@ export default function StoreLayout() {
             </button>
             {user ? (
               <>
-                <span className="kicker">Hi, {user.name || "there"}</span>
+                <NavLink to="/profile" className="profile-nav" aria-label="My Profile">
+                  {user.avatar_url ? (
+                    <img src={avatarSource(user.avatar_url)} alt="" className="nav-avatar" />
+                  ) : (
+                    <span className="nav-avatar nav-avatar-initials" aria-hidden="true">{initials(user.name)}</span>
+                  )}
+                  <span>My Profile</span>
+                </NavLink>
                 <button className="text-btn" onClick={logout}>Sign out</button>
               </>
             ) : (
